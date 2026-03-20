@@ -31,6 +31,10 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import androidx.compose.ui.unit.DpSize
+import androidx.glance.LocalSize
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import com.olliesbrother.nbastandingsapp.MainActivity
 import com.olliesbrother.nbastandingsapp.data.FakeStandingsRepository
 import com.olliesbrother.nbastandingsapp.model.Conference
@@ -38,7 +42,17 @@ import com.olliesbrother.nbastandingsapp.model.TeamStanding
 
 class NbaStandingsWidget : GlanceAppWidget() {
 
-    override val sizeMode = SizeMode.Single
+    companion object {
+        val SelectedConferenceKey = stringPreferencesKey("selected_conference")
+
+        private val SMALL_SIZE = DpSize(180.dp, 120.dp)
+        private val MEDIUM_SIZE = DpSize(250.dp, 180.dp)
+        private val LARGE_SIZE = DpSize(320.dp, 280.dp)
+    }
+
+    override val sizeMode = SizeMode.Responsive(
+        setOf(SMALL_SIZE, MEDIUM_SIZE, LARGE_SIZE)
+    )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val launchApp = actionStartActivity(
@@ -55,89 +69,144 @@ class NbaStandingsWidget : GlanceAppWidget() {
                 Conference.WEST -> repository.getWesternStandings()
             }
 
-            Column(
-                modifier = GlanceModifier
-                    .fillMaxSize()
-                    .background(
-                        ColorProvider(
-                            day = Color(0xFF0F1720),
-                            night = Color(0xFF0F1720)
-                        )
+            val size = LocalSize.current
+            val showFullNames = size.height >= MEDIUM_SIZE.height
+
+            WidgetContent(
+                title = "NBA Standings",
+                subtitle = standings.conferenceName,
+                updatedAt = standings.updatedAt,
+                teams = standings.teams.take(8),
+                showFullNames = showFullNames,
+                launchApp = launchApp
+            )
+        }
+    }
+}
+@Composable
+private fun TeamStandingRow(
+    team: TeamStanding,
+    showFullName: Boolean
+) {
+    Row(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = GlanceModifier
+                .width(28.dp)
+                .background(
+                    ColorProvider(
+                        day = Color(0xFF243243),
+                        night = Color(0xFF243243)
                     )
-                    .padding(16.dp)
-                    .clickable(launchApp)
-            ) {
-                HeaderSection(
-                    title = "NBA Standings",
-                    subtitle = standings.conferenceName,
-                    updatedAt = standings.updatedAt
                 )
+                .padding(vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = team.seed.toString(),
+                style = TextStyle(
+                    color = ColorProvider(Color.White, Color.White),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
 
-                Spacer(modifier = GlanceModifier.height(12.dp))
+        Spacer(modifier = GlanceModifier.width(10.dp))
 
-                Column(
-                    modifier = GlanceModifier
-                        .fillMaxWidth()
-                        .background(
-                            ColorProvider(
-                                day = Color(0xFF17212B),
-                                night = Color(0xFF17212B)
-                            )
-                        )
-                        .padding(12.dp)
-                ) {
-                    TableHeader()
+        Column(modifier = GlanceModifier.defaultWeight()) {
+            Text(
+                text = team.abbreviation,
+                style = TextStyle(
+                    color = ColorProvider(Color.White, Color.White),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
 
-                    Spacer(modifier = GlanceModifier.height(8.dp))
+            if (showFullName) {
+                Text(
+                    text = team.teamName,
+                    style = TextStyle(
+                        color = ColorProvider(
+                            day = Color(0xFF8FA2B7),
+                            night = Color(0xFF8FA2B7)
+                        ),
+                        fontSize = 11.sp
+                    )
+                )
+            }
+        }
 
-                    standings.teams.take(8).forEachIndexed { index, team ->
-                        TeamStandingRow(team)
+        Text(
+            text = "${team.wins}-${team.losses}",
+            style = TextStyle(
+                color = ColorProvider(Color.White, Color.White),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+        )
+    }
+}
+@Composable
+private fun WidgetContent(
+    title: String,
+    subtitle: String,
+    updatedAt: String,
+    teams: List<TeamStanding>,
+    showFullNames: Boolean,
+    launchApp: androidx.glance.action.Action
+) {
+    Column(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(
+                ColorProvider(
+                    day = Color(0xFF0F1720),
+                    night = Color(0xFF0F1720)
+                )
+            )
+            .padding(16.dp)
+            .clickable(launchApp)
+    ) {
+        HeaderSection(
+            title = title,
+            subtitle = subtitle,
+            updatedAt = updatedAt
+        )
 
-                        if (index == 5) {
-                            Spacer(
-                                modifier = GlanceModifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(
-                                        ColorProvider(
-                                            day = Color(0xFF314052),
-                                            night = Color(0xFF314052)
-                                        )
-                                    )
-                            )
+        Spacer(modifier = GlanceModifier.height(12.dp))
 
-                            Text(
-                                text = "Play-In Line",
-                                modifier = GlanceModifier.padding(vertical = 6.dp),
-                                style = TextStyle(
-                                    color = ColorProvider(
-                                        day = Color(0xFF8FA2B7),
-                                        night = Color(0xFF8FA2B7)
-                                    ),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        } else if (index < standings.teams.take(8).lastIndex) {
-                            Spacer(
-                                modifier = GlanceModifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(
-                                        ColorProvider(
-                                            day = Color(0xFF233140),
-                                            night = Color(0xFF233140)
-                                        )
-                                    )
-                            )
-                        }
-                    }
+        Column(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .background(
+                    ColorProvider(
+                        day = Color(0xFF17212B),
+                        night = Color(0xFF17212B)
+                    )
+                )
+                .padding(12.dp)
+        ) {
+            TableHeader()
+
+            Spacer(modifier = GlanceModifier.height(8.dp))
+
+            LazyColumn(
+                modifier = GlanceModifier.fillMaxWidth()
+            ) {
+                items(teams) { team ->
+                    TeamStandingRow(
+                        team = team,
+                        showFullName = showFullNames
+                    )
                 }
             }
         }
-    }
-
-    companion object {
-        val SelectedConferenceKey = stringPreferencesKey("selected_conference")
     }
 }
 

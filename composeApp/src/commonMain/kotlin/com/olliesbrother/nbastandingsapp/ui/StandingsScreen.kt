@@ -11,24 +11,23 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.olliesbrother.nbastandingsapp.data.FakeStandingsRepository
+import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.model.TeamStanding
 
 @Composable
-fun StandingsScreen() {
+fun StandingsScreen(
+    selectedConference: Conference,
+    onConferenceSelected: (Conference) -> Unit
+) {
     val repository = remember { FakeStandingsRepository() }
-    var showEast by remember { mutableStateOf(true) }
 
-    val standings = if (showEast) {
-        repository.getEasternStandings()
-    } else {
-        repository.getWesternStandings()
+    val standings = when (selectedConference) {
+        Conference.EAST -> repository.getEasternStandings()
+        Conference.WEST -> repository.getWesternStandings()
     }
 
     Column(modifier = Modifier.padding(16.dp)) {
@@ -47,10 +46,11 @@ fun StandingsScreen() {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(bottom = 16.dp)
         ) {
-            Button(onClick = { showEast = true }) {
+            Button(onClick = { onConferenceSelected(Conference.EAST) }) {
                 Text("East")
             }
-            Button(onClick = { showEast = false }) {
+
+            Button(onClick = { onConferenceSelected(Conference.WEST) }) {
                 Text("West")
             }
         }

@@ -2,9 +2,12 @@ package com.olliesbrother.nbastandingsapp.widget
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.clickable
@@ -14,6 +17,7 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
+import androidx.glance.currentState
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -26,6 +30,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.olliesbrother.nbastandingsapp.MainActivity
 import com.olliesbrother.nbastandingsapp.data.FakeStandingsRepository
+import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.model.TeamStanding
 
 class NbaStandingsWidget : GlanceAppWidget() {
@@ -33,12 +38,20 @@ class NbaStandingsWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Single
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val standings = FakeStandingsRepository().getEasternStandings()
         val launchApp = actionStartActivity(
             Intent(context, MainActivity::class.java)
         )
 
         provideContent {
+            val prefs = currentState<Preferences>()
+            val conferenceValue = prefs[SelectedConferenceKey] ?: Conference.EAST.name
+
+            val repository = FakeStandingsRepository()
+            val standings = when (Conference.valueOf(conferenceValue)) {
+                Conference.EAST -> repository.getEasternStandings()
+                Conference.WEST -> repository.getWesternStandings()
+            }
+
             Column(
                 modifier = GlanceModifier
                     .fillMaxSize()
@@ -54,10 +67,7 @@ class NbaStandingsWidget : GlanceAppWidget() {
                 Text(
                     text = "NBA Standings",
                     style = TextStyle(
-                        color = ColorProvider(
-                            day = Color(0xFFFFFFFF),
-                            night = Color(0xFFFFFFFF)
-                        ),
+                        color = ColorProvider(Color.White, Color.White),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -67,8 +77,8 @@ class NbaStandingsWidget : GlanceAppWidget() {
                     text = standings.conferenceName,
                     style = TextStyle(
                         color = ColorProvider(
-                            day = Color(0xFFB8C1CC),
-                            night = Color(0xFFB8C1CC)
+                            Color(0xFFB8C1CC),
+                            Color(0xFFB8C1CC)
                         ),
                         fontSize = 14.sp
                     )
@@ -82,8 +92,8 @@ class NbaStandingsWidget : GlanceAppWidget() {
                         modifier = GlanceModifier.defaultWeight(),
                         style = TextStyle(
                             color = ColorProvider(
-                                day = Color(0xFF8E99A8),
-                                night = Color(0xFF8E99A8)
+                                Color(0xFF8E99A8),
+                                Color(0xFF8E99A8)
                             ),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
@@ -94,8 +104,8 @@ class NbaStandingsWidget : GlanceAppWidget() {
                         text = "W-L",
                         style = TextStyle(
                             color = ColorProvider(
-                                day = Color(0xFF8E99A8),
-                                night = Color(0xFF8E99A8)
+                                Color(0xFF8E99A8),
+                                Color(0xFF8E99A8)
                             ),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
@@ -115,8 +125,8 @@ class NbaStandingsWidget : GlanceAppWidget() {
                     text = standings.updatedAt,
                     style = TextStyle(
                         color = ColorProvider(
-                            day = Color(0xFF8E99A8),
-                            night = Color(0xFF8E99A8)
+                            Color(0xFF8E99A8),
+                            Color(0xFF8E99A8)
                         ),
                         fontSize = 11.sp
                     )
@@ -124,9 +134,13 @@ class NbaStandingsWidget : GlanceAppWidget() {
             }
         }
     }
+
+    companion object {
+        val SelectedConferenceKey = stringPreferencesKey("selected_conference")
+    }
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 private fun TeamStandingRow(team: TeamStanding) {
     Row(
         modifier = GlanceModifier
@@ -137,10 +151,7 @@ private fun TeamStandingRow(team: TeamStanding) {
             text = "${team.seed}. ${team.abbreviation}",
             modifier = GlanceModifier.defaultWeight(),
             style = TextStyle(
-                color = ColorProvider(
-                    day = Color(0xFFFFFFFF),
-                    night = Color(0xFFFFFFFF)
-                ),
+                color = ColorProvider(Color.White, Color.White),
                 fontSize = 14.sp
             )
         )
@@ -148,10 +159,7 @@ private fun TeamStandingRow(team: TeamStanding) {
         Text(
             text = "${team.wins}-${team.losses}",
             style = TextStyle(
-                color = ColorProvider(
-                    day = Color(0xFFFFFFFF),
-                    night = Color(0xFFFFFFFF)
-                ),
+                color = ColorProvider(Color.White, Color.White),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             )

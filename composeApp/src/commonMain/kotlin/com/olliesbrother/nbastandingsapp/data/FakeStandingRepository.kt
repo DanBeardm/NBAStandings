@@ -1,14 +1,15 @@
 package com.olliesbrother.nbastandingsapp.data
 
+import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.model.ConferenceStandings
 import com.olliesbrother.nbastandingsapp.model.TeamStanding
 
 class FakeStandingsRepository : StandingsRepository {
 
-    override fun getEasternStandings(): ConferenceStandings {
-        return ConferenceStandings(
+    override suspend fun getStandingsByConference(): Map<Conference, ConferenceStandings> {
+        val east = ConferenceStandings(
             conferenceName = "Eastern Conference",
-            updatedAt = "Updated 14:05",
+            updatedAt = "Mock data",
             teams = listOf(
                 TeamStanding(1, "BOS", "Boston Celtics", 52, 18),
                 TeamStanding(2, "MIL", "Milwaukee Bucks", 48, 22),
@@ -20,12 +21,10 @@ class FakeStandingsRepository : StandingsRepository {
                 TeamStanding(8, "PHI", "Philadelphia 76ers", 38, 32)
             )
         )
-    }
 
-    override fun getWesternStandings(): ConferenceStandings {
-        return ConferenceStandings(
+        val west = ConferenceStandings(
             conferenceName = "Western Conference",
-            updatedAt = "Updated 14:05",
+            updatedAt = "Mock data",
             teams = listOf(
                 TeamStanding(1, "DEN", "Denver Nuggets", 54, 16),
                 TeamStanding(2, "OKC", "Oklahoma City Thunder", 50, 20),
@@ -36,6 +35,11 @@ class FakeStandingsRepository : StandingsRepository {
                 TeamStanding(7, "SAC", "Sacramento Kings", 40, 30),
                 TeamStanding(8, "LAL", "Los Angeles Lakers", 39, 31)
             )
+        )
+
+        return mapOf(
+            Conference.EAST to east,
+            Conference.WEST to west
         )
     }
 }

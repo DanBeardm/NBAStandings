@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.lifecycleScope
+import com.olliesbrother.nbastandingsapp.data.ApiSportsStandingsRepository
 import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.widget.NbaStandingsWidget
 import com.olliesbrother.nbastandingsapp.widget.WidgetPreferences
@@ -17,6 +18,13 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private lateinit var prefs: WidgetPreferences
+    val repository = ApiSportsStandingsRepository(
+        apiKey = ApiKeys.API_SPORTS_API_KEY,
+        leagueId = 12,
+        season = "2025-2026",
+        stage = "NBA - Regular Season"
+    )
+
     private var selectedConferenceState = mutableStateOf(Conference.EAST)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,6 +38,7 @@ class MainActivity : ComponentActivity() {
             val selectedConference by selectedConferenceState
 
             App(
+                repository = repository,
                 selectedConference = selectedConference,
                 onConferenceSelected = { conference ->
                     if (conference == selectedConferenceState.value) return@App
@@ -52,5 +61,10 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
+    }
+
+    override fun onDestroy() {
+        repository.close()
+        super.onDestroy()
     }
 }

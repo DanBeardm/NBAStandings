@@ -4,16 +4,21 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalSize
+import androidx.glance.action.Action
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
@@ -31,11 +36,9 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.compose.ui.unit.DpSize
-import androidx.glance.LocalSize
-import androidx.glance.appwidget.lazy.LazyColumn
-import androidx.glance.appwidget.lazy.items
+import com.olliesbrother.nbastandingsapp.ApiKeys
 import com.olliesbrother.nbastandingsapp.MainActivity
+import com.olliesbrother.nbastandingsapp.data.ApiSportsStandingsRepository
 import com.olliesbrother.nbastandingsapp.data.FakeStandingsRepository
 import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.model.TeamStanding
@@ -59,15 +62,29 @@ class NbaStandingsWidget : GlanceAppWidget() {
             Intent(context, MainActivity::class.java)
         )
 
+        val standingsMap = try {
+            val repository = ApiSportsStandingsRepository(
+                apiKey = ApiKeys.API_SPORTS_API_KEY,
+                leagueId = 12,
+                season = "2022-2023",
+                stage = "NBA - Regular Season"
+            )
+
+            try {
+                repository.getStandingsByConference()
+            } finally {
+                repository.close()
+            }
+        } catch (_: Exception) {
+            FakeStandingsRepository().getStandingsByConference()
+        }
+
         provideContent {
             val prefs = currentState<Preferences>()
             val conferenceValue = prefs[SelectedConferenceKey] ?: Conference.EAST.name
+            val conference = Conference.valueOf(conferenceValue)
 
-            val repository = FakeStandingsRepository()
-            val standings = when (Conference.valueOf(conferenceValue)) {
-                Conference.EAST -> repository.getEasternStandings()
-                Conference.WEST -> repository.getWesternStandings()
-            }
+            val standings = standingsMap[conference] ?: standingsMap.getValue(Conference.EAST)
 
             val size = LocalSize.current
             val showFullNames = size.height >= MEDIUM_SIZE.height
@@ -83,75 +100,7 @@ class NbaStandingsWidget : GlanceAppWidget() {
         }
     }
 }
-@Composable
-private fun TeamStandingRow(
-    team: TeamStanding,
-    showFullName: Boolean
-) {
-    Row(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = GlanceModifier
-                .width(28.dp)
-                .background(
-                    ColorProvider(
-                        day = Color(0xFF243243),
-                        night = Color(0xFF243243)
-                    )
-                )
-                .padding(vertical = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = team.seed.toString(),
-                style = TextStyle(
-                    color = ColorProvider(Color.White, Color.White),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-        }
 
-        Spacer(modifier = GlanceModifier.width(10.dp))
-
-        Column(modifier = GlanceModifier.defaultWeight()) {
-            Text(
-                text = team.abbreviation,
-                style = TextStyle(
-                    color = ColorProvider(Color.White, Color.White),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-
-            if (showFullName) {
-                Text(
-                    text = team.teamName,
-                    style = TextStyle(
-                        color = ColorProvider(
-                            day = Color(0xFF8FA2B7),
-                            night = Color(0xFF8FA2B7)
-                        ),
-                        fontSize = 11.sp
-                    )
-                )
-            }
-        }
-
-        Text(
-            text = "${team.wins}-${team.losses}",
-            style = TextStyle(
-                color = ColorProvider(Color.White, Color.White),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
-    }
-}
 @Composable
 private fun WidgetContent(
     title: String,
@@ -159,7 +108,7 @@ private fun WidgetContent(
     updatedAt: String,
     teams: List<TeamStanding>,
     showFullNames: Boolean,
-    launchApp: androidx.glance.action.Action
+    launchApp: Action
 ) {
     Column(
         modifier = GlanceModifier
@@ -303,7 +252,10 @@ private fun TableHeader() {
 }
 
 @Composable
-private fun TeamStandingRow(team: TeamStanding) {
+private fun TeamStandingRow(
+    team: TeamStanding,
+    showFullName: Boolean
+) {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -344,16 +296,18 @@ private fun TeamStandingRow(team: TeamStanding) {
                 )
             )
 
-            Text(
-                text = team.teamName,
-                style = TextStyle(
-                    color = ColorProvider(
-                        day = Color(0xFF8FA2B7),
-                        night = Color(0xFF8FA2B7)
-                    ),
-                    fontSize = 11.sp
+            if (showFullName) {
+                Text(
+                    text = team.teamName,
+                    style = TextStyle(
+                        color = ColorProvider(
+                            day = Color(0xFF8FA2B7),
+                            night = Color(0xFF8FA2B7)
+                        ),
+                        fontSize = 11.sp
+                    )
                 )
-            )
+            }
         }
 
         Text(

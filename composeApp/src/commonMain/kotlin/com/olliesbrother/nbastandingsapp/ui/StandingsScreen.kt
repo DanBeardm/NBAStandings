@@ -1,43 +1,56 @@
 package com.olliesbrother.nbastandingsapp.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.olliesbrother.nbastandingsapp.data.FakeStandingsRepository
+import com.olliesbrother.nbastandingsapp.data.StandingsRepository
 import com.olliesbrother.nbastandingsapp.model.Conference
+import com.olliesbrother.nbastandingsapp.model.ConferenceStandings
 import com.olliesbrother.nbastandingsapp.model.TeamStanding
 
 @Composable
 fun StandingsScreen(
+    repository: StandingsRepository,
     selectedConference: Conference,
     onConferenceSelected: (Conference) -> Unit
 ) {
-    val repository = remember { FakeStandingsRepository() }
+    var loadError by remember { mutableStateOf<String?>(null) }
 
-    val standings = when (selectedConference) {
-        Conference.EAST -> repository.getEasternStandings()
-        Conference.WEST -> repository.getWesternStandings()
+    val standingsMap by produceState<Map<Conference, ConferenceStandings>?>(initialValue = null, repository) {
+        loadError = null
+        value = try {
+            repository.getStandingsByConference()
+        } catch (e: Exception) {
+            loadError = e.message ?: "Failed to load standings"
+            null
+        }
     }
+
+    val standings = standingsMap?.get(selectedConference)
 
     Column(
         modifier = Modifier.padding(16.dp)
@@ -47,16 +60,9 @@ fun StandingsScreen(
             style = MaterialTheme.typography.headlineMedium
         )
 
-        Text(
-            text = standings.conferenceName,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
-        )
-
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)
         ) {
             ConferenceButton(
                 label = "East",
@@ -71,32 +77,61 @@ fun StandingsScreen(
             )
         }
 
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            tonalElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                HeaderRow()
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+        when {
+            standings == null && loadError == null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 32.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    items(standings.teams) { team ->
-                        TeamRow(team)
-                    }
+                    CircularProgressIndicator()
                 }
             }
-        }
 
-        Text(
-            text = standings.updatedAt,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 14.dp)
-        )
+            standings == null -> {
+                Text(
+                    text = loadError ?: "Failed to load standings",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            else -> {
+                Text(
+                    text = standings.conferenceName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    tonalElevation = 2.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        HeaderRow()
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(standings.teams) { team ->
+                                TeamRow(team)
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = standings.updatedAt,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 14.dp)
+                )
+            }
+        }
     }
 }
 

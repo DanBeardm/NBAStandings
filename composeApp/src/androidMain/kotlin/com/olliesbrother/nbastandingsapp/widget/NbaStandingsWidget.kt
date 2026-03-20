@@ -36,9 +36,8 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import com.olliesbrother.nbastandingsapp.ApiKeys
 import com.olliesbrother.nbastandingsapp.MainActivity
-import com.olliesbrother.nbastandingsapp.data.ApiSportsStandingsRepository
+import com.olliesbrother.nbastandingsapp.data.EspnStandingsRepository
 import com.olliesbrother.nbastandingsapp.data.FakeStandingsRepository
 import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.model.TeamStanding
@@ -63,13 +62,7 @@ class NbaStandingsWidget : GlanceAppWidget() {
         )
 
         val standingsMap = try {
-            val repository = ApiSportsStandingsRepository(
-                apiKey = ApiKeys.API_SPORTS_API_KEY,
-                leagueId = 12,
-                season = "2022-2023",
-                stage = "NBA - Regular Season"
-            )
-
+            val repository = EspnStandingsRepository()
             try {
                 repository.getStandingsByConference()
             } finally {

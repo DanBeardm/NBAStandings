@@ -9,7 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.lifecycleScope
-import com.olliesbrother.nbastandingsapp.data.ApiSportsStandingsRepository
+import com.olliesbrother.nbastandingsapp.data.EspnStandingsRepository
 import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.widget.NbaStandingsWidget
 import com.olliesbrother.nbastandingsapp.widget.WidgetPreferences
@@ -18,12 +18,9 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private lateinit var prefs: WidgetPreferences
-    val repository = ApiSportsStandingsRepository(
-        apiKey = ApiKeys.API_SPORTS_API_KEY,
-        leagueId = 12,
-        season = "2025-2026",
-        stage = "NBA - Regular Season"
-    )
+    private val repository by lazy {
+        EspnStandingsRepository()
+    }
 
     private var selectedConferenceState = mutableStateOf(Conference.EAST)
 

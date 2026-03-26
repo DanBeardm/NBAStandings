@@ -16,7 +16,8 @@ fun App(
     onConferenceSelected: (Conference) -> Unit = {},
     onRefreshRequested: () -> Unit = {},
     refreshVersion: Int = 0,
-    isRefreshing: Boolean = false
+    isRefreshing: Boolean = false,
+    statusMessage: String? = null
 ) {
     MaterialTheme {
         Surface {
@@ -26,7 +27,8 @@ fun App(
                 onConferenceSelected = onConferenceSelected,
                 onRefreshRequested = onRefreshRequested,
                 refreshVersion = refreshVersion,
-                isRefreshing = isRefreshing
+                isRefreshing = isRefreshing,
+                statusMessage = statusMessage
             )
         }
     }

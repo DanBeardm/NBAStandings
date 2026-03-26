@@ -40,7 +40,8 @@ fun StandingsScreen(
     onConferenceSelected: (Conference) -> Unit,
     onRefreshRequested: () -> Unit,
     refreshVersion: Int,
-    isRefreshing: Boolean
+    isRefreshing: Boolean,
+    statusMessage: String?
 ) {
     var loadError by remember { mutableStateOf<String?>(null) }
 
@@ -66,7 +67,7 @@ fun StandingsScreen(
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)
+            modifier = Modifier.padding(top = 12.dp, bottom = 12.dp)
         ) {
             ConferenceButton(
                 label = "East",
@@ -86,6 +87,11 @@ fun StandingsScreen(
             ) {
                 Text(if (isRefreshing) "Refreshing..." else "Refresh")
             }
+        }
+
+        if (!statusMessage.isNullOrBlank()) {
+            StatusBanner(statusMessage)
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
         when {
@@ -143,6 +149,38 @@ fun StandingsScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StatusBanner(message: String) {
+    val isWarning = message.contains("cached", ignoreCase = true) ||
+            message.contains("offline", ignoreCase = true) ||
+            message.contains("failed", ignoreCase = true)
+
+    val containerColor = if (isWarning) {
+        MaterialTheme.colorScheme.errorContainer
+    } else {
+        MaterialTheme.colorScheme.secondaryContainer
+    }
+
+    val contentColor = if (isWarning) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = message,
+            color = contentColor,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+        )
     }
 }
 

@@ -82,11 +82,15 @@ class NbaStandingsWidget : GlanceAppWidget() {
             val size = LocalSize.current
             val showFullNames = size.height >= MEDIUM_SIZE.height
 
+            val orderedTeams = standings.teams
+                .sortedBy { it.seed }
+                .take(8)
+
             WidgetContent(
                 title = "NBA Standings",
                 subtitle = standings.conferenceName,
                 updatedAt = standings.updatedAt,
-                teams = standings.teams.take(8),
+                teams = orderedTeams,
                 showFullNames = showFullNames,
                 launchApp = launchApp
             )

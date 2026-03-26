@@ -4,63 +4,42 @@ import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.model.ConferenceStandings
 import com.olliesbrother.nbastandingsapp.model.TeamStanding
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.get
-import io.ktor.http.takeFrom
-import io.ktor.serialization.kotlinx.json.json
+import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 class EspnStandingsRepository : StandingsRepository {
 
     private val client = HttpClient {
         expectSuccess = true
-
-        defaultRequest {
-            url.takeFrom("https://site.api.espn.com/apis/site/v2")
-        }
-
-        install(ContentNegotiation) {
-            json(
-                Json {
-                    ignoreUnknownKeys = true
-                    explicitNulls = false
-                }
-            )
-        }
     }
 
     override suspend fun getStandingsByConference(): Map<Conference, ConferenceStandings> {
-        val root: JsonObject = client
-            .get("sports/basketball/nba/standings")
-            .body()
+        val rawText = client
+            .get("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings")
+            .bodyAsText()
 
-        val eastTeams = parseConferenceTeams(root, Conference.EAST)
-        val westTeams = parseConferenceTeams(root, Conference.WEST)
+        val root = Json.parseToJsonElement(rawText).jsonObject
 
-        if (eastTeams.isEmpty() && westTeams.isEmpty()) {
-            error("ESPN standings loaded, but no conference rows were parsed.")
-        }
+        val eastNode = findConferenceNode(root, Conference.EAST)
+            ?: error("Could not find Eastern Conference in ESPN standings response.")
+
+        val westNode = findConferenceNode(root, Conference.WEST)
+            ?: error("Could not find Western Conference in ESPN standings response.")
+
+        val eastStandings = parseConferenceStandings(eastNode, "Eastern Conference")
+        val westStandings = parseConferenceStandings(westNode, "Western Conference")
 
         return mapOf(
-            Conference.EAST to ConferenceStandings(
-                conferenceName = "Eastern Conference",
-                updatedAt = "Updated recently",
-                teams = eastTeams
-            ),
-            Conference.WEST to ConferenceStandings(
-                conferenceName = "Western Conference",
-                updatedAt = "Updated recently",
-                teams = westTeams
-            )
+            Conference.EAST to eastStandings,
+            Conference.WEST to westStandings
         )
     }
 
@@ -69,87 +48,99 @@ class EspnStandingsRepository : StandingsRepository {
     }
 }
 
-private fun parseConferenceTeams(
-    root: JsonObject,
-    conference: Conference
-): List<TeamStanding> {
-    val conferenceNode = findConferenceNode(root, conference) ?: return emptyList()
-
-    val entries = extractEntries(conferenceNode)
-
-    return entries.mapNotNull { entry ->
-        parseTeamStanding(entry)
-    }.sortedBy { it.seed }
-}
+private data class ParsedConferenceRow(
+    val sourceOrder: Int,
+    val abbreviation: String,
+    val teamName: String,
+    val wins: Int,
+    val losses: Int
+)
 
 private fun findConferenceNode(
     root: JsonObject,
     conference: Conference
 ): JsonObject? {
-    val children = root["children"]?.asJsonArrayOrNull().orEmpty()
-
-    return children
+    val children = root["children"]
+        ?.asJsonArrayOrNull()
+        .orEmpty()
         .mapNotNull { it as? JsonObject }
-        .firstOrNull { child ->
-            val text = listOfNotNull(
-                child.string("name"),
-                child.string("displayName"),
-                child.string("shortDisplayName"),
-                child["abbreviation"]?.jsonPrimitive?.contentOrNull
-            ).joinToString(" ").lowercase()
 
-            when (conference) {
-                Conference.EAST -> text.contains("east")
-                Conference.WEST -> text.contains("west")
-            }
+    return children.firstOrNull { child ->
+        val abbreviation = child.string("abbreviation")?.lowercase().orEmpty()
+        val name = child.string("name")?.lowercase().orEmpty()
+        val displayName = child.string("displayName")?.lowercase().orEmpty()
+
+        when (conference) {
+            Conference.EAST ->
+                abbreviation == "east" ||
+                        name.contains("eastern") ||
+                        displayName.contains("eastern")
+
+            Conference.WEST ->
+                abbreviation == "west" ||
+                        name.contains("western") ||
+                        displayName.contains("western")
         }
+    }
 }
 
-private fun extractEntries(node: JsonObject): List<JsonObject> {
-    node["standings"]
-        ?.asJsonObjectOrNull()
-        ?.get("entries")
+private fun parseConferenceStandings(
+    conferenceNode: JsonObject,
+    conferenceName: String
+): ConferenceStandings {
+    val standings = conferenceNode["standings"]?.asJsonObjectOrNull()
+        ?: error("Conference standings object missing for $conferenceName.")
+
+    val seasonDisplayName = standings.string("seasonDisplayName") ?: "Current Season"
+
+    val entries = standings["entries"]
         ?.asJsonArrayOrNull()
-        ?.mapNotNull { it as? JsonObject }
-        ?.let { return it }
-
-    node["entries"]
-        ?.asJsonArrayOrNull()
-        ?.mapNotNull { it as? JsonObject }
-        ?.let { return it }
-
-    return emptyList()
-}
-
-private fun parseTeamStanding(entry: JsonObject): TeamStanding? {
-    val team = entry["team"]?.asJsonObjectOrNull() ?: return null
-    val stats = entry["stats"]?.asJsonArrayOrNull().orEmpty()
-
-    val statMap = stats
+        .orEmpty()
         .mapNotNull { it as? JsonObject }
-        .associateBy(
-            keySelector = { stat ->
-                stat.string("name")?.lowercase()
-                    ?: stat.string("abbreviation")?.lowercase()
-                    ?: ""
-            },
-            valueTransform = { stat ->
-                stat["value"]
-            }
+
+    if (entries.isEmpty()) {
+        error("No entries found for $conferenceName.")
+    }
+
+    val parsedRows = entries.mapIndexedNotNull { index, entry ->
+        parseConferenceRow(entry, index)
+    }
+
+    val sortedRows = parsedRows.sortedWith(
+        compareByDescending<ParsedConferenceRow> { it.wins }
+            .thenBy { it.losses }
+            .thenBy { it.sourceOrder }
+    )
+
+    val teams = sortedRows.mapIndexed { index, row ->
+        TeamStanding(
+            seed = index + 1,
+            abbreviation = row.abbreviation,
+            teamName = row.teamName,
+            wins = row.wins,
+            losses = row.losses
         )
+    }
 
-    val seed = statMap["playoffseed"]?.asInt()
-        ?: statMap["rank"]?.asInt()
-        ?: statMap["seed"]?.asInt()
-        ?: return null
+    return ConferenceStandings(
+        conferenceName = conferenceName,
+        updatedAt = seasonDisplayName,
+        teams = teams
+    )
+}
 
-    val wins = statMap["wins"]?.asInt()
-        ?: statMap["w"]?.asInt()
-        ?: return null
+private fun parseConferenceRow(
+    entry: JsonObject,
+    sourceOrder: Int
+): ParsedConferenceRow? {
+    val team = entry["team"]?.asJsonObjectOrNull() ?: return null
+    val stats = entry["stats"]
+        ?.asJsonArrayOrNull()
+        .orEmpty()
+        .mapNotNull { it as? JsonObject }
 
-    val losses = statMap["losses"]?.asInt()
-        ?: statMap["l"]?.asInt()
-        ?: return null
+    val wins = findStatInt(stats, "wins", "w") ?: return null
+    val losses = findStatInt(stats, "losses", "l") ?: return null
 
     val abbreviation =
         team.string("abbreviation")
@@ -163,8 +154,8 @@ private fun parseTeamStanding(entry: JsonObject): TeamStanding? {
             ?: team.string("name")
             ?: abbreviation
 
-    return TeamStanding(
-        seed = seed,
+    return ParsedConferenceRow(
+        sourceOrder = sourceOrder,
         abbreviation = abbreviation,
         teamName = teamName,
         wins = wins,
@@ -172,21 +163,30 @@ private fun parseTeamStanding(entry: JsonObject): TeamStanding? {
     )
 }
 
+private fun findStatInt(
+    stats: List<JsonObject>,
+    vararg names: String
+): Int? {
+    val wanted = names.map { it.lowercase() }.toSet()
+
+    val stat = stats.firstOrNull { item ->
+        val name = item.string("name")?.lowercase()
+        val abbreviation = item.string("abbreviation")?.lowercase()
+        wanted.contains(name) || wanted.contains(abbreviation)
+    } ?: return null
+
+    return stat.numberToInt("value")
+        ?: stat.string("displayValue")?.toDoubleOrNull()?.toInt()
+}
+
 private fun JsonObject.string(key: String): String? {
     return this[key]?.jsonPrimitive?.contentOrNull
 }
 
-private fun JsonElement?.asJsonObjectOrNull(): JsonObject? {
-    return this as? JsonObject
+private fun JsonObject.numberToInt(key: String): Int? {
+    val primitive = this[key] as? JsonPrimitive ?: return null
+    return primitive.contentOrNull?.toDoubleOrNull()?.toInt()
 }
 
-private fun JsonElement?.asJsonArrayOrNull(): JsonArray? {
-    return this as? JsonArray
-}
-
-private fun JsonElement?.asInt(): Int? {
-    return when (this) {
-        is JsonPrimitive -> this.intOrNull
-        else -> null
-    }
-}
+private fun JsonElement?.asJsonObjectOrNull(): JsonObject? = this as? JsonObject
+private fun JsonElement?.asJsonArrayOrNull(): JsonArray? = this as? JsonArray

@@ -13,14 +13,20 @@ import com.olliesbrother.nbastandingsapp.ui.StandingsScreen
 fun App(
     repository: StandingsRepository = FakeStandingsRepository(),
     selectedConference: Conference = Conference.EAST,
-    onConferenceSelected: (Conference) -> Unit = {}
+    onConferenceSelected: (Conference) -> Unit = {},
+    onRefreshRequested: () -> Unit = {},
+    refreshVersion: Int = 0,
+    isRefreshing: Boolean = false
 ) {
     MaterialTheme {
         Surface {
             StandingsScreen(
                 repository = repository,
                 selectedConference = selectedConference,
-                onConferenceSelected = onConferenceSelected
+                onConferenceSelected = onConferenceSelected,
+                onRefreshRequested = onRefreshRequested,
+                refreshVersion = refreshVersion,
+                isRefreshing = isRefreshing
             )
         }
     }

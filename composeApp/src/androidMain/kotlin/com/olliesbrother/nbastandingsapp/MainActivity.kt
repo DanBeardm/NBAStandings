@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
@@ -35,6 +36,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private var selectedConferenceState = mutableStateOf(Conference.EAST)
+    private var refreshVersionState = mutableIntStateOf(0)
+    private var isRefreshingState = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -47,12 +50,15 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             runCatching {
                 repository.warmCache()
+                refreshVersionState.intValue++
             }
             NbaStandingsWidget().updateAll(applicationContext)
         }
 
         setContent {
             val selectedConference by selectedConferenceState
+            val refreshVersion = refreshVersionState.intValue
+            val isRefreshing by isRefreshingState
 
             App(
                 repository = repository,
@@ -75,7 +81,22 @@ class MainActivity : ComponentActivity() {
                             widget.update(applicationContext, glanceId)
                         }
                     }
-                }
+                },
+                onRefreshRequested = {
+                    if (isRefreshingState.value) return@App
+
+                    lifecycleScope.launch {
+                        isRefreshingState.value = true
+                        runCatching {
+                            repository.forceRefresh()
+                            refreshVersionState.intValue++
+                            NbaStandingsWidget().updateAll(applicationContext)
+                        }
+                        isRefreshingState.value = false
+                    }
+                },
+                refreshVersion = refreshVersion,
+                isRefreshing = isRefreshing
             )
         }
     }

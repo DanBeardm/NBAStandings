@@ -36,6 +36,12 @@ class CachedStandingsRepository(
         cache.write(fresh)
     }
 
+    suspend fun forceRefresh(): Map<Conference, ConferenceStandings> {
+        val fresh = remoteRepository.getStandingsByConference()
+        cache.write(fresh)
+        return fresh
+    }
+
     private fun isExpired(savedAtMillis: Long): Boolean {
         return System.currentTimeMillis() - savedAtMillis > maxAgeMillis
     }

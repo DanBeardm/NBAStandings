@@ -16,6 +16,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,11 +37,14 @@ import com.olliesbrother.nbastandingsapp.model.TeamStanding
 fun StandingsScreen(
     repository: StandingsRepository,
     selectedConference: Conference,
-    onConferenceSelected: (Conference) -> Unit
+    onConferenceSelected: (Conference) -> Unit,
+    onRefreshRequested: () -> Unit,
+    refreshVersion: Int,
+    isRefreshing: Boolean
 ) {
     var loadError by remember { mutableStateOf<String?>(null) }
 
-    val standingsMap by produceState<Map<Conference, ConferenceStandings>?>(initialValue = null, repository) {
+    val standingsMap by produceState<Map<Conference, ConferenceStandings>?>(initialValue = null, repository, refreshVersion) {
         loadError = null
         value = try {
             repository.getStandingsByConference()
@@ -75,6 +79,13 @@ fun StandingsScreen(
                 selected = selectedConference == Conference.WEST,
                 onClick = { onConferenceSelected(Conference.WEST) }
             )
+
+            OutlinedButton(
+                onClick = onRefreshRequested,
+                enabled = !isRefreshing
+            ) {
+                Text(if (isRefreshing) "Refreshing..." else "Refresh")
+            }
         }
 
         when {

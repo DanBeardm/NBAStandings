@@ -5,6 +5,9 @@ import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.model.ConferenceStandings
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class StandingsCache(context: Context) {
 
@@ -22,10 +25,12 @@ class StandingsCache(context: Context) {
             json.decodeFromString<CachedStandingsPayload>(raw)
         }.getOrNull() ?: return null
 
+        val formattedUpdatedAt = formatUpdatedAt(payload.savedAtMillis)
+
         return CachedStandingsSnapshot(
             standings = mapOf(
-                Conference.EAST to payload.east,
-                Conference.WEST to payload.west
+                Conference.EAST to payload.east.copy(updatedAt = formattedUpdatedAt),
+                Conference.WEST to payload.west.copy(updatedAt = formattedUpdatedAt)
             ),
             savedAtMillis = payload.savedAtMillis
         )
@@ -44,6 +49,11 @@ class StandingsCache(context: Context) {
         prefs.edit()
             .putString(KEY_STANDINGS, json.encodeToString(payload))
             .apply()
+    }
+
+    private fun formatUpdatedAt(savedAtMillis: Long): String {
+        val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+        return "Updated ${formatter.format(Date(savedAtMillis))}"
     }
 
     companion object {

@@ -37,7 +37,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.olliesbrother.nbastandingsapp.MainActivity
-import com.olliesbrother.nbastandingsapp.data.EspnStandingsRepository
+import com.olliesbrother.nbastandingsapp.data.StandingsCache
 import com.olliesbrother.nbastandingsapp.data.FakeStandingsRepository
 import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.model.TeamStanding
@@ -61,16 +61,8 @@ class NbaStandingsWidget : GlanceAppWidget() {
             Intent(context, MainActivity::class.java)
         )
 
-        val standingsMap = try {
-            val repository = EspnStandingsRepository()
-            try {
-                repository.getStandingsByConference()
-            } finally {
-                repository.close()
-            }
-        } catch (_: Exception) {
-            FakeStandingsRepository().getStandingsByConference()
-        }
+        val standingsMap = StandingsCache(context).read()?.standings
+            ?: FakeStandingsRepository().getStandingsByConference()
 
         provideContent {
             val prefs = currentState<Preferences>()

@@ -7,9 +7,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.updateAll
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.lifecycleScope
+import com.olliesbrother.nbastandingsapp.data.CachedStandingsRepository
 import com.olliesbrother.nbastandingsapp.data.EspnStandingsRepository
+import com.olliesbrother.nbastandingsapp.data.StandingsCache
 import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.widget.NbaStandingsWidget
 import com.olliesbrother.nbastandingsapp.widget.WidgetPreferences
@@ -18,8 +21,17 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private lateinit var prefs: WidgetPreferences
-    private val repository by lazy {
+    private lateinit var standingsCache: StandingsCache
+
+    private val remoteRepository by lazy {
         EspnStandingsRepository()
+    }
+
+    private val repository by lazy {
+        CachedStandingsRepository(
+            remoteRepository = remoteRepository,
+            cache = standingsCache
+        )
     }
 
     private var selectedConferenceState = mutableStateOf(Conference.EAST)
@@ -29,7 +41,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         prefs = WidgetPreferences(applicationContext)
+        standingsCache = StandingsCache(applicationContext)
         selectedConferenceState.value = prefs.getSelectedConference()
+
+        lifecycleScope.launch {
+            runCatching {
+                repository.warmCache()
+            }
+            NbaStandingsWidget().updateAll(applicationContext)
+        }
 
         setContent {
             val selectedConference by selectedConferenceState
@@ -61,7 +81,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        repository.close()
+        remoteRepository.close()
         super.onDestroy()
     }
 }

@@ -85,7 +85,16 @@ fun StandingsScreen(
                 onClick = onRefreshRequested,
                 enabled = !isRefreshing
             ) {
-                Text(if (isRefreshing) "Refreshing..." else "Refresh")
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .width(16.dp)
+                            .height(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Refresh")
+                }
             }
         }
 

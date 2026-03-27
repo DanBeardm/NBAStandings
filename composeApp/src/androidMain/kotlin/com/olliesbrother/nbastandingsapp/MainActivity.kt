@@ -66,9 +66,7 @@ class MainActivity : ComponentActivity() {
 
             if (result.isSuccess) {
                 refreshVersionState.intValue++
-                if (hadCache) {
-                    statusMessageState.value = "Standings ready"
-                }
+                statusMessageState.value = null
             } else {
                 statusMessageState.value = if (hadCache) {
                     "Offline — showing cached standings"
@@ -121,7 +119,7 @@ class MainActivity : ComponentActivity() {
 
                         if (result.isSuccess) {
                             refreshVersionState.intValue++
-                            statusMessageState.value = "Standings refreshed"
+                            statusMessageState.value = null
                             NbaStandingsWidget().updateAll(applicationContext)
                         } else {
                             statusMessageState.value = if (hadCache) {

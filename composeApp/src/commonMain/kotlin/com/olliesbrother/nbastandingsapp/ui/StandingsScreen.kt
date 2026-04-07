@@ -32,6 +32,10 @@ import com.olliesbrother.nbastandingsapp.data.StandingsRepository
 import com.olliesbrother.nbastandingsapp.model.Conference
 import com.olliesbrother.nbastandingsapp.model.ConferenceStandings
 import com.olliesbrother.nbastandingsapp.model.TeamStanding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.PaddingValues
 
 @Composable
 fun StandingsScreen(
@@ -58,7 +62,11 @@ fun StandingsScreen(
     val standings = standingsMap?.get(selectedConference)
 
     Column(
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
         Text(
             text = "NBA Standings",
@@ -133,15 +141,18 @@ fun StandingsScreen(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     tonalElevation = 2.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ){
                     Column(modifier = Modifier.padding(14.dp)) {
                         HeaderRow()
 
                         Spacer(modifier = Modifier.height(8.dp))
 
                         LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(bottom = 12.dp)
                         ) {
                             items(standings.teams) { team ->
                                 TeamRow(team)
